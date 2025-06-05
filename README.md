@@ -1,4 +1,4 @@
-# StealthWizard README
+# StealthWizard
 
 **StealthWizard** is a military-grade penetration testing tool engineered for covert operations against Active Directory (AD) environments and Microsoft 365 (M365) cloud tenants. Designed for red team engagements, it executes reconnaissance, credential harvesting, spraying, and cloud privilege escalation with ruthless efficiency, prioritizing stealth, security, and operational control. Leveraging asynchronous operations, robust encryption, and stringent OPSEC, StealthWizard ensures minimal detection risk while maximizing breach impact.
 

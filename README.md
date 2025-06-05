@@ -1,52 +1,54 @@
-# AD Remote Takeover Wizard
+# Stealth AD Takeover Wizard
 
-The **AD Remote Takeover Wizard** is a Python-based tool designed for authorized penetration testing to simulate the initial stages of an Active Directory (AD) compromise in a controlled environment. Integrated with the **Canvas** penetration testing framework, it automates legal validation, target definition, reconnaissance, and credential harvesting/spraying, producing detailed audit logs and results for security assessments. This tool must only be used with explicit permission from the target organization, as unauthorized use is illegal and unethical.
+The **Stealth AD Takeover Wizard** (`stealth_wizard.py`) is an advanced Python-based tool designed for authorized penetration testing to simulate the initial stages of an Active Directory (AD) compromise in a controlled environment. Integrated with the **Canvas** penetration testing framework, it automates legal validation, target definition, stealth reconnaissance, and credential harvesting/spraying, producing encrypted audit logs and results for security assessments. This tool is intended exclusively for use with explicit permission from the target organization, as unauthorized use is illegal and unethical.
 
 ## Purpose
 
-The wizard facilitates red team engagements by simulating attacker workflows, focusing on:
-- **Legal Validation**: Verifies authorization via an engagement letter PDF.
-- **Target Definition**: Validates domains, IP ranges, and cloud tenants (e.g., Microsoft 365).
-- **Reconnaissance**: Conducts passive (e.g., crt.sh, Hunter.io) and active (e.g., masscan, nmap) scanning to identify AD assets.
-- **Credential Harvesting/Spraying**: Generates usernames and tests credentials against services like Microsoft 365.
+The Stealth AD Takeover Wizard facilitates red team engagements by simulating attacker workflows with a focus on operational security (opsec) and stealth, including:
+- **Legal Validation**: Verifies testing authorization via an engagement letter PDF, ensuring compliance with scope.
+- **Target Definition**: Validates domains, IP ranges, and cloud tenants (e.g., Microsoft 365) using secure DNS resolution.
+- **Reconnaissance**: Performs passive (e.g., Hunter.io) and active (e.g., masscan, nmap) scanning to identify AD assets with minimal detection risk.
+- **Credential Harvesting/Spraying**: Generates usernames and tests credentials against services like Microsoft 365, with lockout avoidance mechanisms.
 
-**Note**: Cloud pivoting, remote code execution (RCE), and privilege escalation modules are placeholders and not implemented in this version. The tool halts after reconnaissance if the AD likelihood score is below the configured threshold, unless overridden.
+**Note**: Advanced modules for cloud pivoting, internal reconnaissance, lateral movement, and privilege escalation are placeholders and not implemented in this version. The tool halts after reconnaissance if the AD likelihood score is below the configured threshold, unless overridden.
 
 ## Features
 
-- **Immutable Audit Logging**: Generates gzipped logs with redacted sensitive data (e.g., passwords, tokens).
-- **Opsec-Safe Design**: Implements rate limiting, jitter, and immediate plaintext password clearing to minimize detection.
-- **Canvas Integration**: Executes within Canvas for seamless integration with existing pentest workflows.
-- **Configurable Workflow**: YAML-based configuration for tool paths, timeouts, and module settings.
-- **Graceful Error Handling**: Skips missing tools and logs errors without crashing.
-- **Signal Handling**: Supports graceful shutdown via SIGINT/SIGTERM (Ctrl+C).
+- **Encrypted Audit Logging**: Produces AES-256-CBC encrypted logs (`<uuid>.audit.log.enc`) with redacted sensitive data (e.g., passwords, tokens).
+- **Stealth Operations**: Implements proxy chaining, DNS over HTTPS (DoH), User-Agent rotation, jitter, and low-and-slow techniques to evade detection.
+- **Secure Data Handling**: Encrypts temporary files and results, with secure deletion (shredding) to minimize forensic artifacts.
+- **Detection Avoidance**: Monitors for detection indicators (e.g., WAF headers, lockouts) and can abort operations to protect opsec.
+- **Canvas Integration**: Executes within Canvas’s script runner, leveraging its secure C2 channels for red team workflows.
+- **Configurable Workflow**: YAML-based configuration (`stealth_wizard.yaml`) for tool paths, timeouts, and opsec settings.
+- **Robust Error Handling**: Gracefully handles missing tools and network errors, logging issues without crashing.
+- **Signal Handling**: Supports graceful shutdown via SIGINT/SIGTERM (Ctrl+C) with secure cleanup.
 
 ## Prerequisites
 
 ### System Requirements
-- **Operating System**: Linux (preferred, e.g., Kali Linux), macOS, or Windows (Linux recommended for tool compatibility).
+- **Operating System**: Linux (preferred, e.g., Kali Linux 2025), macOS, or Windows (Linux recommended for tool compatibility).
 - **Python**: Version 3.8 or higher (3.11+ recommended for full feature support, e.g., `encoding='utf-8'` in `subprocess.run`).
-- **Canvas**: A licensed instance of the Canvas penetration testing framework with Python script execution capabilities (e.g., via a Canvas agent or script runner).
-- **Disk Space**: At least 1 GB for logs and results (more for large scans).
-- **Network Access**: Internet access for passive recon (e.g., crt.sh, Hunter.io) and target connectivity for active scans and spraying.
+- **Canvas**: A licensed instance of the Canvas penetration testing framework with Python script execution support (e.g., via a Canvas agent or script runner).
+- **Disk Space**: At least 2 GB for encrypted logs and results (more for large-scale scans).
+- **Network Access**: Internet access for passive reconnaissance (e.g., Hunter.io) and target connectivity for active scans and credential spraying.
 
 ### Python Dependencies
 Install required Python packages using `pip`:
 ```bash
-pip install pypdf pywhois dnspython requests pyyaml
+pip install pycryptodome httpx pypdf pyyaml dnspython
 ```
 
+- `pycryptodome`: For AES-256-CBC encryption of logs and temporary files.
+- `httpx`: For stealth HTTP requests with proxy support and TLS fingerprinting evasion.
 - `pypdf`: For parsing engagement letter PDFs.
-- `pywhois`: For WHOIS lookups.
-- `dnspython`: For DNS resolution.
-- `requests`: For HTTP requests (e.g., Microsoft 365 tenant checks).
 - `pyyaml`: For YAML configuration parsing.
+- `dnspython`: For DNS resolution, including fallback for DoH.
 
 Optional:
 - `xml.etree.ElementTree`: Included in Python’s standard library for Nmap XML parsing; verify availability.
 
 ### External Tools
-The script relies on external tools for certain functions. Install these or disable their features in `wizard.yaml` to skip them:
+The script uses external tools for specific functions. Install these or disable their features in `stealth_wizard.yaml` to skip them:
 - **`masscan`**: High-speed port scanner for active reconnaissance.
   ```bash
   sudo apt-get install masscan  # Debian/Ubuntu
@@ -59,73 +61,95 @@ The script relies on external tools for certain functions. Install these or disa
   ```bash
   sudo apt-get install poppler-utils  # Debian/Ubuntu
   ```
+- **`theHarvester`**: Email harvesting for passive reconnaissance (replaces `hunterio_tool`).
+  ```bash
+  sudo apt-get install theharvester  # Debian/Ubuntu
+  ```
+- **`firejail`**: Optional sandboxing for tool execution.
+  ```bash
+  sudo apt-get install firejail  # Debian/Ubuntu
+  ```
 - **Placeholder Tools** (custom or third-party, not included):
-  - `certsh.py`: Scrapes crt.sh certificates for passive domain discovery.
-  - `hunterio_tool`: Harvests emails from Hunter.io.
-  - `linkedin_scraper`: Scrapes usernames from LinkedIn.
-  - `aad_spray_tool`: Performs Microsoft 365 credential spraying.
-  - `get_ad_policy`: Retrieves AD password policies.
+  - `aad_spray_tool`: Performs Microsoft 365 credential spraying. Expected interface: `aad_spray_tool --domain <domain> --username <user> --password <pass>`.
+  - `get_ad_policy`: Retrieves AD password policies. Expected interface: `get_ad_policy --target <host> --username <user> --password <pass>`.
 
-**Note**: Without these tools, the script will log errors and skip affected features gracefully. Ensure tool paths are correctly specified in `wizard.yaml`.
+**Note**: Missing tools are logged gracefully, and affected features are skipped. Ensure tool paths are specified in `stealth_wizard.yaml`.
 
 ### Canvas Setup
-- **Canvas License**: Ensure a valid Canvas license with Python script execution support.
-- **Agent Configuration**: Deploy a Canvas agent on a compatible system (e.g., Linux) with network access to the target.
-- **Script Runner**: Use Canvas’s script execution module to run `ad_takeover_wizard.py` within the framework, passing command-line arguments as needed.
+- **Canvas License**: Verify a valid Canvas license with Python script execution support.
+- **Agent Configuration**: Deploy a Canvas agent on a Linux system with network access to the target and Python 3.8+ installed.
+- **Script Runner**: Configure Canvas’s script execution module to run `stealth_wizard.py`, passing command-line arguments dynamically.
+- **Dependencies**: Install Python dependencies and external tools on the Canvas agent.
+
+### Engagement Letter
+Obtain a signed engagement letter in PDF format from the target organization, detailing the scope (e.g., company name, testing window). Place it in an accessible directory (e.g., `./engagement/letter.pdf`).
 
 ## Installation
 
-Follow these steps to set up the AD Remote Takeover Wizard:
+Follow these steps to set up the Stealth AD Takeover Wizard:
 
-1. **Clone or Download the Repository**
-   Download the script and associated files (e.g., `wizard.yaml`) to your Canvas agent or testing system:
+1. **Clone or Download the Script**
+   Copy `stealth_wizard.py` and `stealth_wizard.yaml` to your Canvas agent’s working directory or a testing system:
    ```bash
-   git clone <repository-url>  # If hosted in a Git repo
-   cd ad-takeover-wizard
+   git clone <repository-url>  # If hosted in a Git repository
+   cd stealth-ad-takeover-wizard
    ```
-   Alternatively, copy `ad_takeover_wizard.py` and `wizard.yaml` to your working directory.
+   Alternatively, download the files directly.
 
 2. **Install Python Dependencies**
-   Create a virtual environment (optional but recommended) and install packages:
+   Create a virtual environment (recommended) and install packages:
    ```bash
    python3 -m venv venv
    source venv/bin/activate  # Linux/macOS
    venv\Scripts\activate     # Windows
-   pip install pypdf pywhois dnspython requests pyyaml
+   pip install pycryptodome httpx pypdf pyyaml dnspython
    ```
 
 3. **Install External Tools**
-   Install required tools based on your operating system:
+   Install required tools on the Canvas agent or testing system:
    ```bash
    sudo apt-get update
-   sudo apt-get install masscan nmap poppler-utils  # Debian/Ubuntu
+   sudo apt-get install masscan nmap poppler-utils theharvester firejail  # Debian/Ubuntu
    ```
-   For placeholder tools (`certsh.py`, `hunterio_tool`, etc.), ensure they are installed and accessible, or disable their features in `wizard.yaml`:
+   For placeholder tools (`aad_spray_tool`, `get_ad_policy`), provide implementations or disable their features in `stealth_wizard.yaml`:
    ```yaml
-   recon_surface_mapping:
-     passive_recon:
+   credential_harvest_spray:
+     password_spray:
        enabled: false
    ```
 
 4. **Configure Canvas**
-   - Upload `ad_takeover_wizard.py` and `wizard.yaml` to your Canvas agent’s working directory.
-   - Verify Python 3.8+ is available on the Canvas agent (e.g., via `python3 --version`).
-   - Configure Canvas to execute Python scripts, typically via the script runner module or a custom command.
+   - Upload `stealth_wizard.py` and `stealth_wizard.yaml` to the Canvas agent’s working directory.
+   - Verify Python 3.8+ is installed on the agent:
+     ```bash
+     python3 --version
+     ```
+   - Configure Canvas’s script runner to execute Python scripts, passing command-line arguments as needed.
 
-5. **Prepare Engagement Letter**
-   Obtain a signed engagement letter in PDF format from the target organization, specifying the scope of testing (e.g., company name, testing window). Place it in an accessible directory (e.g., `./demo/letter.pdf`).
+5. **Set Up Encryption Keys**
+   - Generate AES-256 keys for audit logs and temporary files using a secure method (e.g., OpenSSL):
+     ```bash
+     openssl rand -base64 32 > audit_key.bin
+     openssl rand -base64 32 > temp_key.bin
+     ```
+   - Store keys securely (e.g., in a Hardware Security Module, HSM, or encrypted vault) and pass them via environment variables:
+     ```bash
+     export AUDIT_LOG_KEY=$(cat audit_key.bin)
+     export TEMP_FILE_KEY=$(cat temp_key.bin)
+     ```
+   - Ensure the Canvas agent has access to these keys during execution.
 
 6. **Customize Configuration**
-   Copy the sample `wizard.yaml` (provided below) to your working directory and edit it to match your environment:
+   Copy the sample `stealth_wizard.yaml` (provided below) and edit it to match your environment:
    ```bash
-   cp wizard.yaml.sample wizard.yaml
-   nano wizard.yaml
+   cp stealth_wizard.yaml.sample stealth_wizard.yaml
+   nano stealth_wizard.yaml
    ```
-   Update tool paths, target details, and module settings as needed. A sample `wizard.yaml` is included at the end of this README.
+   Update tool paths, target details, opsec settings, and API keys as required.
 
 ## Configuration
 
-The `wizard.yaml` file controls the wizard’s behavior. Key sections include:
+The `stealth_wizard.yaml` file controls the wizard’s behavior. Key sections include:
 
 - **Results Storage**:
   ```yaml
@@ -133,7 +157,7 @@ The `wizard.yaml` file controls the wizard’s behavior. Key sections include:
   audit_log_subdir: "audit_logs"
   results_subdir: "results"
   ```
-  Specifies where logs and outputs are saved (e.g., `results/<uuid>/audit_logs/<uuid>.audit.log.gz`).
+  Defines paths for encrypted logs and outputs (e.g., `results/<uuid>/audit_logs/<uuid>.audit.log.enc`).
 
 - **Tool Paths**:
   ```yaml
@@ -141,13 +165,11 @@ The `wizard.yaml` file controls the wizard’s behavior. Key sections include:
     masscan: "/usr/bin/masscan"
     nmap: "/usr/bin/nmap"
     pdftotext: "/usr/bin/pdftotext"
-    certsh.py: "/usr/local/bin/certsh.py"
-    hunterio_tool: "/usr/local/bin/hunterio_tool"
-    linkedin_scraper: "/usr/local/bin/linkedin_scraper"
+    theHarvester: "/usr/bin/theHarvester"
     aad_spray_tool: "/usr/local/bin/aad_spray_tool"
     get_ad_policy: "/usr/local/bin/get_ad_policy"
   ```
-  Defines paths to external tools. Update to match your system.
+  Specifies paths to external tools. Update to match your system.
 
 - **Timeouts**:
   ```yaml
@@ -155,14 +177,14 @@ The `wizard.yaml` file controls the wizard’s behavior. Key sections include:
     dns_resolve: 5
     getuserrealm: 15
   ```
-  Sets timeouts for DNS queries and HTTP requests (in seconds).
+  Sets timeouts for DNS and HTTP operations (in seconds).
 
 - **Gatekeeper**:
   ```yaml
   gatekeeper:
     engagement_checksum: null  # Optional SHA256 checksum
   ```
-  Validates the engagement letter PDF (optional checksum for integrity).
+  Validates the engagement letter PDF (optional checksum).
 
 - **Target Definition**:
   ```yaml
@@ -171,231 +193,241 @@ The `wizard.yaml` file controls the wizard’s behavior. Key sections include:
     suspected_cloud_tenant: "example.onmicrosoft.com"
     optional_targets: "192.168.1.0/24"
   ```
-  Specifies target domains, cloud tenants, and IP ranges/CIDRs.
+  Specifies domains, cloud tenants, and IP ranges/CIDRs.
 
 - **Reconnaissance**:
   ```yaml
   recon_surface_mapping:
     passive_recon:
       enabled: true
-      crtsh:
-        enabled: true
-        timeout: 180
       hunterio:
         enabled: true
         timeout: 120
     active_scan:
       enabled: true
       cidr_expansion_limit: 65536
-      masscan_rate: 1000
+      masscan_rate: 50
       scan_ports: "88,135,139,389,445,593,636,3268,3269,53,587,443"
       ad_likelihood_threshold: 70
   ```
-  Configures passive (crt.sh, Hunter.io) and active (masscan, nmap) scanning.
+  Configures passive (Hunter.io) and active (masscan, nmap) scanning.
 
 - **Credential Harvesting/Spraying**:
   ```yaml
   credential_harvest_spray:
     username_generation:
-      linkedin_scrape:
-        enabled: true
-        timeout: 300
       hunterio:
         enabled: true
+      email_patterns:
+        - "{first}.{last}@{domain}"
+        - "{f}{last}@{domain}"
     password_spray:
       enabled: true
       target_services:
         - "m365"
       rate_per_minute: 1
       attempt_timeout: 30
+      lockout_threshold: 5
   ```
-  Controls username generation and credential spraying (e.g., Microsoft 365).
+  Controls username generation and credential spraying.
 
-- **Opsec**:
+- **Opsec Settings**:
   ```yaml
   opsec:
-    jitter_seconds: 0.5
+    jitter_seconds: [0.5, 2.0]
+    low_and_slow: true
+    proxy_chain:
+      - "http://proxy1:8080"
+      - "socks5://proxy2:1080"
+    exit_on_detection: true
   ```
-  Adds random delays to spray attempts to evade detection.
+  Configures stealth parameters like jitter, proxies, and detection handling.
 
-See the sample `wizard.yaml` at the end for a complete example.
+A complete sample `stealth_wizard.yaml` is provided at the end of this README.
 
 ## Usage
 
 ### Command-Line Execution
-Run the wizard directly from the command line for standalone testing or debugging:
+Run the wizard standalone for testing or debugging:
 ```bash
-python3 ad_takeover_wizard.py \
-  --engagement-letter ./demo/letter.pdf \
+python3 stealth_wizard.py \
+  --engagement-letter ./engagement/letter.pdf \
   --company-name "ACME Corp" \
   --testing-window "2025-06-10 to 2025-06-12" \
-  --config wizard.yaml \
-  --run-uuid "$(uuidgen)"
+  --config stealth_wizard.yaml \
+  --run-uuid "$(uuidgen)" \
+  --debug
 ```
 
 **Arguments**:
 - `--engagement-letter`: Path to the engagement letter PDF (required).
 - `--company-name`: Target company name for validation (required).
 - `--testing-window`: Testing period (e.g., "YYYY-MM-DD to YYYY-MM-DD") (required).
-- `--config`: Path to `wizard.yaml` (default: `wizard.yaml`).
+- `--config`: Path to `stealth_wizard.yaml` (default: `stealth_wizard.yaml`).
 - `--run-uuid`: Unique run identifier (default: auto-generated UUID).
+- `--debug`: Enables verbose logging for troubleshooting.
 
 **Example Output**:
 ```
-AD Remote Takeover Wizard (Simulation Mode - Authorized Use Only)
---- 0 - Gatekeeper Screen (Legal & Scope) ---
-Audit log: results/<uuid>/audit_logs/<uuid>.audit.log.gz
-Results dir: results/<uuid>
-Gatekeeper validation successful for UUID: <uuid>
---- 1 - Target Definition ---
-Validating domain: example.com
-Target definition complete.
---- 2 - Recon & Surface Mapping ---
-Performing passive reconnaissance...
-Error: Required tool 'certsh.py' not found or not executable.
-AD Likelihood Score: 0%
-AD likelihood score (0%) below threshold (70%). Halting.
---- Wizard Complete ---
+[StealthWizard] Stealth AD Takeover Wizard (Operational Mode - AUTHORIZED USE ONLY)
+--- Gatekeeper Screen ---
+INFO: Audit log initialized: results/<uuid>/audit_logs/<uuid>.audit.log.enc
+INFO: Results directory: results/<uuid>
+INFO: Gatekeeper passed for UUID: <uuid>
+--- Target Definition ---
+INFO: Target definition complete.
+--- Recon & Surface Mapping ---
+INFO: Reconnaissance complete.
+--- Credential Harvest & Spray ---
+INFO: Cracked credentials found: 0
+INFO: --- Wizard Execution Finished ---
 UUID: <uuid>
-Audit log: results/<uuid>/audit_logs/<uuid>.audit.log.gz
-Results: results/<uuid>
-Status: halted_after_recon
+Audit log (encrypted): results/<uuid>/audit_logs/<uuid>.audit.log.enc
+Results directory: results/<uuid>
+Status: completed
 ```
 
 ### Canvas Integration
-To run within Canvas:
-1. **Upload Files**: Transfer `ad_takeover_wizard.py` and `wizard.yaml` to the Canvas agent’s working directory.
-2. **Configure Script Runner**: Use Canvas’s script execution module (e.g., Python Script Runner) to invoke the command:
+To execute within Canvas:
+1. **Upload Files**: Transfer `stealth_wizard.py` and `stealth_wizard.yaml` to the Canvas agent’s working directory.
+2. **Set Environment Variables**: Provide encryption keys:
    ```bash
-   python3 ad_takeover_wizard.py --engagement-letter /path/to/letter.pdf --company-name "ACME Corp" --testing-window "2025-06-10 to 2025-06-12"
+   export AUDIT_LOG_KEY=$(cat audit_key.bin)
+   export TEMP_FILE_KEY=$(cat temp_key.bin)
    ```
-3. **Pass Arguments**: Configure Canvas to pass command-line arguments or hardcode them in a wrapper script.
-4. **Monitor Output**: View results in Canvas’s console or retrieve logs/results from `results/<uuid>` on the agent.
+3. **Configure Script Runner**: Use Canvas’s Python script runner to execute:
+   ```bash
+   python3 stealth_wizard.py --engagement-letter /path/to/letter.pdf --company-name "ACME Corp" --testing-window "2025-06-10 to 2025-06-12" --debug
+   ```
+4. **Monitor Output**: View logs in Canvas’s console or retrieve encrypted results from `results/<uuid>`.
 
-**Example Canvas Wrapper Script** (`run_wizard.py`):
+**Example Canvas Wrapper Script** (`run_stealth_wizard.py`):
 ```python
 import os
-os.system('python3 ad_takeover_wizard.py --engagement-letter /path/to/letter.pdf --company-name "ACME Corp" --testing-window "2025-06-10 to 2025-06-12"')
+os.system('python3 stealth_wizard.py --engagement-letter /path/to/letter.pdf --company-name "ACME Corp" --testing-window "2025-06-10 to 2025-06-12" --debug')
 ```
-Upload and execute `run_wizard.py` via Canvas.
+Upload and execute via Canvas’s script runner.
 
 ### Common Scenarios
 
-1. **Run with Minimal Config (No External Tools)**:
-   Disable passive and active recon to test basic functionality:
+1. **Minimal Run (No Active Recon)**:
+   Disable active scanning for stealth:
    ```yaml
    recon_surface_mapping:
-     passive_recon:
-       enabled: false
      active_scan:
        enabled: false
    ```
    ```bash
-   python3 ad_takeover_wizard.py --engagement-letter letter.pdf --company-name "Test Corp" --testing-window "2025-06-10 to 2025-06-12"
+   python3 stealth_wizard.py --engagement-letter letter.pdf --company-name "Test Corp" --testing-window "2025-06-10 to 2025-06-12"
    ```
 
-2. **Perform Full Recon and Spraying**:
-   Ensure all tools are installed and configured in `wizard.yaml`:
+2. **Full Recon and Spraying**:
+   Ensure all tools are installed and configured:
    ```bash
-   python3 ad_takeover_wizard.py --engagement-letter letter.pdf --company-name "ACME Corp" --testing-window "2025-06-10 to 2025-06-12"
+   python3 stealth_wizard.py --engagement-letter letter.pdf --company-name "ACME Corp" --testing-window "2025-06-10 to 2025-06-12" --debug
    ```
 
-3. **Override Low AD Likelihood Score**:
-   Allow the wizard to proceed despite a low AD score:
+3. **Override Low AD Score**:
+   Proceed despite a low AD likelihood score:
    ```yaml
    recon_surface_mapping:
      override_threshold_on_low_score: true
    ```
    ```bash
-   python3 ad_takeover_wizard.py --engagement-letter letter.pdf --company-name "ACME Corp" --testing-window "2025-06-10 to 2025-06-12"
+   python3 stealth_wizard.py --engagement-letter letter.pdf --company-name "ACME Corp" --testing-window "2025-06-10 to 2025-06-12"
    ```
 
 ## Output
 
-- **Audit Logs**: Stored in `results/<uuid>/audit_logs/<uuid>.audit.log.gz`. Contains timestamped events (e.g., tool execution, errors) with sensitive data redacted.
+- **Encrypted Audit Logs**: Stored in `results/<uuid>/audit_logs/<uuid>.audit.log.enc`. Contains timestamped, encrypted events (e.g., tool execution, errors). Decrypt using the audit log key:
+  ```bash
+  # Example decryption script (not provided)
+  python3 decrypt_log.py --key audit_key.bin --input results/<uuid>/audit_logs/<uuid>.audit.log.enc
+  ```
 - **Results**: Saved in `results/<uuid>/results/`, including:
-  - `<uuid>_passive_recon.csv`: Passive reconnaissance assets (if enabled).
-  - `<uuid>_masscan_targets.txt`: IPs for masscan (temporary).
-  - `<uuid>_masscan_raw.txt`: Masscan output (if generated).
-  - `<uuid>_nmap_targets.txt`: IPs for nmap (temporary).
-  - `<uuid>_nmap_scripted.xml`: Nmap XML output (if generated).
-- **Console Output**: Summarizes progress, errors, and credential findings (e.g., `Found: user@example.com for m365`).
+  - `<uuid>_nmap.xml`: Nmap XML output (if generated).
+  - Temporary encrypted files (e.g., `<uuid>_masscan_targets.txt`, `<uuid>_nmap_targets.txt`) are shredded on completion.
+- **Console Output**: Summarizes progress, errors, and credential findings (e.g., `Cracked credentials found: 2`).
 
 ## Operational Security (Opsec)
 
-- **Engagement Letter Validation**: Ensures testing is authorized, aborting if the company name is not found in the PDF.
-- **Password Handling**: Plaintext passwords are hashed immediately and cleared from memory after use (e.g., post-policy check).
-- **Rate Limiting**: Configurable rate limits (`rate_per_minute`) and jitter (`jitter_seconds`) reduce detection risk during spraying.
-- **Sensitive Data Redaction**: Passwords, tokens, and hashes are redacted in logs using regex patterns.
-- **Temporary Files**: Automatically deleted on exit or interrupt (SIGINT/SIGTERM).
-- **Canvas Context**: Running within Canvas leverages its stealth features (e.g., encrypted C2 channels).
+- **Engagement Validation**: Aborts if the company name is not found in the engagement letter, ensuring legal compliance.
+- **Password Handling**: Plaintext passwords are hashed and cleared immediately after use, minimizing memory exposure.
+- **Rate Limiting and Jitter**: Configurable `rate_per_minute` and `jitter_seconds` reduce detection risk during spraying.
+- **Data Encryption**: All logs and temporary files are encrypted with AES-256-CBC, using unique IVs per operation.
+- **Secure Cleanup**: Temporary files are shredded (`shred` policy) on exit or interrupt, reducing forensic traces.
+- **Detection Monitoring**: Aborts on detection indicators (e.g., WAF blocks, lockouts) if `exit_on_detection` is enabled.
+- **Proxy Chaining**: Supports HTTP/SOCKS proxies to obfuscate traffic, configurable via `proxy_chain`.
 
 **Recommendations**:
-- Use a dedicated, isolated testing environment to avoid accidental exposure.
-- Minimize active scanning (`masscan`, `nmap`) to reduce network noise.
-- Test spraying rates in a lab environment to optimize evasion.
-- Verify log storage security to prevent unauthorized access.
+- Operate in an isolated, dedicated environment to prevent accidental exposure.
+- Use residential proxies or Tor for `proxy_chain` to blend with legitimate traffic.
+- Test spraying rates and scan parameters in a lab to optimize evasion.
+- Store encryption keys in a secure vault (e.g., HashiCorp Vault) and restrict access.
+- Regularly review audit logs for detection indicators post-engagement.
 
 ## Troubleshooting
 
 - **Error: Tool '<tool_name>' not found**
-  - Ensure the tool is installed and its path is correct in `wizard.yaml`.
-  - Disable the feature (e.g., `crtsh.enabled: false`) if the tool is unavailable.
+  - Verify the tool is installed and its path is correct in `stealth_wizard.yaml`.
+  - Disable the feature if the tool is unavailable:
+    ```yaml
+    recon_surface_mapping:
+      active_scan:
+        enabled: false
+    ```
   ```bash
   sudo apt-get install <tool_name>  # Install missing tool
   ```
 
-- **Error: Invalid or missing engagement letter PDF**
-  - Verify the PDF path is correct and the file is accessible.
-  - Ensure the company name (`--company-name`) matches text in the PDF (case-insensitive).
+- **Error: Invalid engagement letter PDF**
+  - Ensure the PDF path is correct and the file is accessible.
+  - Check that `--company-name` matches text in the PDF (case-insensitive).
   ```bash
   pdftotext letter.pdf - | grep "ACME Corp"
   ```
 
-- **JSONDecodeError in audit logs**
-  - If logs fail to write, check disk space and permissions for `results/<uuid>/audit_logs`.
-  - Verify `wizard.yaml` does not introduce non-serializable objects.
+- **Audit log decryption fails**
+  - Verify the correct `AUDIT_LOG_KEY` is provided.
+  - Check for file corruption or incorrect IV handling.
   ```bash
-  df -h  # Check disk space
-  chmod -R 755 results  # Fix permissions
+  ls -l results/<uuid>/audit_logs/<uuid>.audit.log.enc  # Verify file exists
   ```
 
 - **No credentials found during spraying**
-  - Confirm `target_services` (e.g., `m365`) and `target_domain` are correct in `wizard.yaml`.
-  - Check rate limiting (`rate_per_minute`) and network connectivity.
+  - Confirm `target_services` and `suspected_cloud_tenant` are correct in `stealth_wizard.yaml`.
+  - Check network connectivity and rate limits:
   ```bash
-  ping login.microsoftonline.com  # Verify connectivity
+  ping login.microsoftonline.com
   ```
 
-- **Canvas execution fails**
-  - Ensure Python 3.8+ is installed on the Canvas agent.
-  - Check Canvas logs for Python errors or missing dependencies.
+- **Canvas execution errors**
+  - Ensure Python 3.8+ and dependencies are installed on the Canvas agent.
+  - Review Canvas logs for Python errors.
   ```bash
-  python3 --version  # Verify Python version
-  pip install pypdf pywhois dnspython requests pyyaml  # Reinstall dependencies
+  python3 --version
+  pip install pycryptodome httpx pypdf pyyaml dnspython
   ```
 
-## Sample `wizard.yaml`
+## Sample `stealth_wizard.yaml`
 
 ```yaml
-# AD Remote Takeover Wizard Configuration
+# Stealth AD Takeover Wizard Configuration
 results_directory: "results"
 audit_log_subdir: "audit_logs"
 results_subdir: "results"
 tool_paths:
-  certsh.py: "/usr/local/bin/certsh.py"
-  hunterio_tool: "/usr/local/bin/hunterio_tool"
-  linkedin_scraper: "/usr/local/bin/linkedin_scraper"
-  aad_spray_tool: "/usr/local/bin/aad_spray_tool"
-  get_ad_policy: "/usr/local/bin/get_ad_policy"
   masscan: "/usr/bin/masscan"
   nmap: "/usr/bin/nmap"
   pdftotext: "/usr/bin/pdftotext"
+  theHarvester: "/usr/bin/theHarvester"
+  aad_spray_tool: "/usr/local/bin/aad_spray_tool"
+  get_ad_policy: "/usr/local/bin/get_ad_policy"
 timeouts:
   dns_resolve: 5
   getuserrealm: 15
 gatekeeper:
-  engagement_checksum: null  # Optional SHA256 checksum
+  engagement_checksum: null
 target_definition:
   root_domains: "example.com,example.org"
   suspected_cloud_tenant: "example.onmicrosoft.com"
@@ -403,31 +435,24 @@ target_definition:
 recon_surface_mapping:
   passive_recon:
     enabled: true
-    crtsh:
-      enabled: true
-      timeout: 180
     hunterio:
       enabled: true
       timeout: 120
   active_scan:
     enabled: true
     cidr_expansion_limit: 65536
-    masscan_rate: 1000
-    masscan_timeout: 300
+    masscan_rate: 50
+    masscan_timeout: 600
     scan_ports: "88,135,139,389,445,593,636,3268,3269,53,587,443"
     nmap_script_set: "default,auth,vuln,ldap*"
-    nmap_timeout: 600
-    nmap_max_rate: 100
+    nmap_timeout: 1200
+    nmap_max_rate: 20
     nmap_script_timeout: 60
-    nmap_max_ports: 25
     exclusion_list: []
     ad_likelihood_threshold: 70
     override_threshold_on_low_score: false
 credential_harvest_spray:
   username_generation:
-    linkedin_scrape:
-      enabled: true
-      timeout: 300
     hunterio:
       enabled: true
     email_patterns:
@@ -459,22 +484,34 @@ credential_harvest_spray:
       - "m365"
     rate_per_minute: 1
     attempt_timeout: 30
+    lockout_threshold: 5
 opsec:
-  jitter_seconds: 0.5
+  jitter_seconds: [0.5, 2.0]
+  low_and_slow: true
+  proxy_chain:
+    - "http://proxy1:8080"
+    - "socks5://proxy2:1080"
+  user_agents:
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+  exit_on_detection: true
+  temp_file_cleanup_policy: shred
+  dns_over_https: false
+  doh_resolvers:
+    - "https://cloudflare-dns.com/dns-query"
 ```
 
 ## Contributing
 
-This tool is a proof-of-concept for educational and authorized testing purposes. Contributions are welcome to enhance functionality (e.g., implementing placeholder modules, adding tests). To contribute:
+Contributions are welcome to enhance the tool’s functionality, such as implementing placeholder modules or adding unit tests. To contribute:
 1. Fork the repository (if hosted).
-2. Create a feature branch (`git checkout -b feature/new-module`).
+2. Create a feature branch (`git checkout -b feature/cloud-pivot`).
 3. Submit a pull request with detailed changes.
 
 **Requested Enhancements**:
-- Unit tests for tool output simulation.
-- Config validation to detect missing tools/settings.
-- Implementation of cloud pivot, RCE, and privilege escalation modules.
-- Support for additional credential spraying services (e.g., OWA, VPN).
+- Implement cloud pivot, internal reconnaissance, and lateral movement modules.
+- Add unit tests for tool stubs and scan outputs.
+- Integrate advanced TLS fingerprinting for HTTP requests.
+- Develop a decryption utility for audit logs and results.
 
 ## Legal Disclaimer
 
@@ -482,7 +519,7 @@ This tool is provided for **authorized security testing only**. Unauthorized use
 
 ## License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details (if included in the repository).
+This project is licensed under the MIT License. See the `LICENSE` file for details (if included).
 
 ## Contact
 
